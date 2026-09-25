@@ -12,6 +12,8 @@
  */
 import { mkdir, writeFile, readdir, access } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
+import { realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 import { TEMPLATES, byId } from './templates.js';
@@ -159,5 +161,22 @@ async function main() {
   return 0;
 }
 
-const isDirect = process.argv[1] && import.meta.url === `file://${resolve(process.argv[1])}`;
-if (isDirect) main().then(c => process.exit(c)).catch(err => { stdout.write(`\n${err.message}\n`); process.exit(1); });
+/* Run only when executed, not when imported by the tests.
+ *
+ * The previous check compared import.meta.url against process.argv[1]
+ * verbatim. npm installs a bin as a SYMLINK -- node_modules/.bin/... ->
+ * ../create-wayleave-app/index.js -- so argv[1] is the link and
+ * import.meta.url is its target. They never matched, main() never ran, and
+ * `npx create-wayleave-app my-api` exited 0 having done nothing at all.
+ * It worked in every local test because `node index.js` has no symlink.
+ *
+ * realpathSync resolves the link, and pathToFileURL handles the encoding
+ * a hand-built `file://` + path string gets wrong on spaces. */
+let invokedDirectly = false;
+try {
+  invokedDirectly = Boolean(process.argv[1]) &&
+    import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+} catch { /* argv[1] gone or unreadable: treat as imported */ }
+
+if (invokedDirectly)
+  main().then(c => process.exit(c)).catch(err => { stdout.write(`\n${err.message}\n`); process.exit(1); });

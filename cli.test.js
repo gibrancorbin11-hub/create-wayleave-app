@@ -140,3 +140,30 @@ test('everything index.js imports is actually published', async () => {
     await rm(out, { recursive: true, force: true });
   }
 });
+
+/* Invoked through a symlink, which is how npm installs a bin.
+ *
+ * The entry guard compared import.meta.url to process.argv[1] verbatim.
+ * npm links node_modules/.bin/create-wayleave-app -> the real index.js, so
+ * argv[1] was the link and import.meta.url its target; they never matched
+ * and main() never ran. `npx create-wayleave-app my-api` exited 0 having
+ * created nothing. Every local test passed, because `node index.js` has no
+ * symlink in the path -- the one invocation nobody tests is the only one
+ * users perform. */
+import { symlink, mkdir as mkd } from 'node:fs/promises';
+import { execFileSync as exec } from 'node:child_process';
+
+test('scaffolds when run through a symlink, the way npm installs it', async () => {
+  const base = await tmp();
+  const bin = join(base, 'bin');
+  await mkd(bin, { recursive: true });
+  const link = join(bin, 'create-wayleave-app');
+  await symlink(new URL('./index.js', import.meta.url).pathname, link);
+
+  const out = exec('node', [link, 'linked', '--template', 'paid-api'],
+                   { cwd: base, encoding: 'utf8' });
+  assert.match(out, /Created linked\//, 'the CLI produced no output through a symlink');
+  const files = await readdir(join(base, 'linked'));
+  assert.ok(files.includes('server.js'), 'nothing was scaffolded through a symlink');
+  assert.ok(files.includes('package.json'));
+});
