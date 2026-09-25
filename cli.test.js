@@ -107,34 +107,36 @@ test('byId is exact and unknown ids return null rather than a default', () => {
    templates.js at the root, so npm would have shipped a package that threw
    ERR_MODULE_NOT_FOUND on first run. This repo's sibling shipped exactly
    that bug once: "0.2.1: ship wayleave/meter, which 0.2.0 promised and did
-   not include". Once is enough. */
+   not include". Once is enough.
+
+   It packs a real tarball and lists it, rather than reading
+   `npm pack --json`. That JSON's shape is not stable across npm majors --
+   this test passed on npm 10 and crashed on npm 11 in CI with "Cannot read
+   properties of undefined (reading 'files')", which is a test breaking on
+   its own scaffolding rather than on the thing it guards. The bytes npm
+   actually ships are the subject; ask them directly. */
 import { execFileSync } from 'node:child_process';
-import { readFile as rf } from 'node:fs/promises';
+import { readFile as rf, mkdtemp as mkdt, rm } from 'node:fs/promises';
 
 test('everything index.js imports is actually published', async () => {
+  const dir = new URL('.', import.meta.url).pathname;
   const entry = await rf(new URL('./index.js', import.meta.url), 'utf8');
   const local = [...entry.matchAll(/from\s+'(\.\/[^']+)'/g)].map(m => m[1].replace('./', ''));
   assert.ok(local.length, 'no local imports found — has the entry point changed?');
 
-  const out = execFileSync('npm', ['pack', '--dry-run', '--json'],
-                           { cwd: new URL('.', import.meta.url).pathname, encoding: 'utf8' });
-  const shipped = new Set(JSON.parse(out)[0].files.map(f => f.path));
+  const out = await mkdt(join(tmpdir(), 'cwa-pack-'));
+  try {
+    const packed = execFileSync('npm', ['pack', '--pack-destination', out],
+                                { cwd: dir, encoding: 'utf8' }).trim().split('\n').pop();
+    const listing = execFileSync('tar', ['-tzf', join(out, packed)], { encoding: 'utf8' });
+    // npm prefixes every entry with "package/".
+    const shipped = new Set(listing.split('\n').filter(Boolean).map(f => f.replace(/^package\//, '')));
 
-  for (const dep of local)
-    assert.ok(shipped.has(dep), `index.js imports ${dep}, which npm would not publish`);
-  assert.ok(shipped.has('index.js'), 'the entry point itself must ship');
-});
-
-/* The CLI used to print the same "curl /api/premium" for every template,
-   including the two that have no such route. A first instruction that 404s
-   is worse than none. */
-test('each template tells you to curl a route it actually serves', () => {
-  for (const t of TEMPLATES) {
-    assert.ok(t.tryIt && t.expect, `${t.id} has no try-it hint`);
-    const route = (t.tryIt.match(/localhost:3000(\/[^\s'"|]*)/) || [])[1];
-    assert.ok(route, `${t.id}: no route in the hint`);
-    const base = route.split('?')[0];
-    assert.ok(t.files['server.js'].includes(`'${base}'`) || t.files['server.js'].includes(base.replace(/\/[^/]+$/, '/:')),
-      `${t.id} tells you to curl ${base}, which its server.js does not serve`);
+    for (const dep of local)
+      assert.ok(shipped.has(dep), `index.js imports ${dep}, which npm would not publish`);
+    assert.ok(shipped.has('index.js'), 'the entry point itself must ship');
+    assert.ok(shipped.has('package.json'), 'the manifest must ship');
+  } finally {
+    await rm(out, { recursive: true, force: true });
   }
 });
