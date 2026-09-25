@@ -1,0 +1,41 @@
+{
+  "name": "create-wayleave-app",
+  "version": "0.1.0",
+  "description": "Scaffold an Express app with Wayleave mounted: agent traffic identified by signature, one priced route, humans never charged. Zero dependencies.",
+  "type": "module",
+  "bin": {
+    "create-wayleave-app": "index.js"
+  },
+  "files": [
+    "index.js",
+    "templates.js"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "wayleave",
+    "create-app",
+    "scaffold",
+    "ai-agents",
+    "agent-identity",
+    "web-bot-auth",
+    "rfc9421",
+    "http-402",
+    "x402",
+    "express",
+    "zero-dependencies"
+  ],
+  "license": "MIT",
+  "homepage": "https://wayleave.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gibrancorbin11-hub/create-wayleave-app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gibrancorbin11-hub/create-wayleave-app/issues"
+  },
+  "scripts": {
+    "test": "node --test *.test.js"
+  }
+}
