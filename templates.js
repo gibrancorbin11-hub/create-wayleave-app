@@ -49,10 +49,28 @@ import Wayleave from 'wayleave';
 
 const app = express();
 
-/* Humans are never charged and never walled. That is not a setting here --
-   it is what the lanes mean: only automated traffic can reach a price. */
+/* Humans are never charged and never walled. That IS a setting, and it is
+   this one.
+   
+   Price a route and the gate defaults to strict: the human lane stops being
+   enough on its own, because a bot that looks like a browser would otherwise
+   walk through a paywall for free. The cost of strict is that your own
+   signed-in people get asked to pay too -- there is nothing left that tells
+   them apart from the bot.
+   
+   This starter has no sessions, so there is nothing honest to check. Humans
+   free is the stronger law, so strict is off here and a browser reaches
+   /api/premium without paying.
+   
+   The moment you add auth, turn it back on and say how to recognise your
+   people -- the priced-strict template shows it:
+   
+     strictPricedPaths: true,
+     confirmHuman: req => Boolean(req.session?.userId),
+*/
 const gate = new Wayleave({
   pricedPaths: { '/api/premium': 0.01 },      // 1 cent per agent request
+  strictPricedPaths: false,
   ...(process.env.WAYLEAVE_PAY_TO
     ? { payment: { payTo: process.env.WAYLEAVE_PAY_TO, network: 'base' } }
     : {}),
