@@ -154,11 +154,34 @@ async function main() {
 
   stdout.write(`\nCreated ${checked.name}/ from "${template.id}"\n`);
   for (const f of written) stdout.write(`  ${f}\n`);
-  stdout.write(`\n  cd ${checked.name}\n  npm install\n  npm start\n\n`);
-  stdout.write('Then try it the way an agent would:\n');
-  stdout.write(`  ${template.tryIt}\n\n`);
-  stdout.write(`${template.expect}\n\n`);
+  stdout.write(nextSteps(checked.name, template));
   return 0;
+}
+
+/**
+ * What to do next, in the order someone actually does it.
+ *
+ * The last line is the only place this tool mentions the hosted meter, and
+ * the placement is the argument. The app you just scaffolded runs completely
+ * without an account — deliberately — but it keeps NO RECORD: the counts live
+ * in the process and go when it stops, so "how much agent traffic did I get
+ * last week" has no answer even though the gate watched all of it go past.
+ * Nothing else hints at that, because everything else works.
+ *
+ * A scaffolder's closing lines are where "what now" belongs, and somebody
+ * asked for them by running the command. The same sentence printed from the
+ * library on every boot would be nagging about a supported way to run it,
+ * which is a different thing and not an honest one.
+ */
+export function nextSteps(name, template) {
+  return `\n  cd ${name}\n  npm install\n  npm start\n\n`
+    + 'Then try it the way an agent would:\n'
+    + `  ${template.tryIt}\n\n`
+    + `${template.expect}\n\n`
+    + 'It runs with no account and keeps no history — the counts live in the\n'
+    + 'process and go when it stops. To keep a record you can look at later,\n'
+    + 'put a meter key in .env:\n'
+    + '  https://meter.wayleave.dev/account.html  ->  WAYLEAVE_METER_KEY\n\n';
 }
 
 /* Run only when executed, not when imported by the tests.

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { validateName, resolveTarget, directoryIsUsable, buildFiles, scaffold } from './index.js';
+import { validateName, resolveTarget, directoryIsUsable, buildFiles, scaffold, nextSteps } from './index.js';
 import { TEMPLATES, byId } from './templates.js';
 
 const tmp = () => mkdtemp(join(tmpdir(), 'cwa-'));
@@ -166,4 +166,44 @@ test('scaffolds when run through a symlink, the way npm installs it', async () =
   const files = await readdir(join(base, 'linked'));
   assert.ok(files.includes('server.js'), 'nothing was scaffolded through a symlink');
   assert.ok(files.includes('package.json'));
+});
+
+/* ── Telling someone the one thing they cannot discover ────────────────────
+
+   The scaffolded app works with no account, and that is deliberate. What is
+   invisible is that it keeps NO RECORD: the counters live in the process and
+   die with it, so "how much agent traffic did I get last week" has no answer
+   even though the gate watched all of it go past. Everything else works, so
+   nothing hints at the gap.
+
+   The scaffolder's closing lines are where that belongs — somebody asked for
+   them by running the command. The same sentence printed from the library on
+   every boot would be nagging about a supported way to run it, which is a
+   different thing and not an honest one. */
+test('the closing output says the app keeps no history, and where to change that', () => {
+  const out = nextSteps('my-api', TEMPLATES[0]);
+  assert.match(out, /keeps no history/i);
+  assert.match(out, /WAYLEAVE_METER_KEY/);
+  assert.match(out, /meter\.wayleave\.dev/);
+});
+
+test('it says what to run first, and ours comes last', () => {
+  /* Order is the whole argument. "npm install / npm start / try it like an
+     agent" is why they ran this; the meter is a footnote and must read like
+     one, not like a step. */
+  const out = nextSteps('my-api', TEMPLATES[0]);
+  const start = out.indexOf('npm start');
+  const tryIt = out.indexOf(TEMPLATES[0].tryIt);
+  const meter = out.indexOf('meter.wayleave.dev');
+  assert.ok(start > 0, 'it must still say how to run the thing');
+  assert.ok(tryIt > start, 'then how to try it');
+  assert.ok(meter > tryIt, 'and only then mention us');
+});
+
+test('every template produces complete next steps', () => {
+  for (const t of TEMPLATES) {
+    const out = nextSteps('x', t);
+    assert.ok(out.includes(t.tryIt), `${t.id} must say how to try it`);
+    assert.ok(out.includes(t.expect), `${t.id} must say what to expect`);
+  }
 });
